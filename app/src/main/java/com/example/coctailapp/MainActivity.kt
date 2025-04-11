@@ -1,6 +1,7 @@
 package com.example.coctailapp
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,6 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.coctailapp.network.Cocktail
 import com.example.coctailapp.network.CocktailApiService
+import com.example.coctailapp.network.CocktailDetails
 import com.example.coctailapp.network.RetrofitInstance.apiService
 import com.example.coctailapp.ui.theme.CoctailAppTheme
 import retrofit2.Retrofit
@@ -49,11 +51,11 @@ fun MainApp() {
             }
         }
         composable(
-            "about_cocktail/{cocktailName}",
-            arguments = listOf(navArgument("cocktailName") { type = NavType.StringType })
+            "about_cocktail/{idDrink}",
+            arguments = listOf(navArgument("idDrink") { type = NavType.StringType })
         ) { backStackEntry ->
-            val cocktailName = backStackEntry.arguments?.getString("cocktailName") ?: "Unknown"
-            AboutCocktailScreen(cocktailName)
+            val cocktailId = backStackEntry.arguments?.getString("idDrink") ?: "Unknown"
+            AboutCocktailScreen(cocktailId)
         }
     }
 }
@@ -61,20 +63,16 @@ fun MainApp() {
 
 @Composable
 fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
-
     val context = LocalContext.current
     val cocktails by produceState<List<Cocktail>>(initialValue = emptyList()) {
         try {
-            value = apiService.getCocktails("Cocktail").drinks
+            value = apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?c=Cocktail").drinks
+            Log.d("CocktailList", "Fetched cocktails: $value")
         } catch (e: Exception) {
             Toast.makeText(context, "Failed to fetch cocktails", Toast.LENGTH_SHORT).show()
+            Log.e("CocktailList", "Error fetching cocktails", e)
         }
     }
-
-//    val cocktails = listOf(
-//        "Mojito", "Martini", "Margarita", "Old Fashioned",
-//        "Daiquiri", "Negroni", "Piña Colada"
-//    )
 
     LazyColumn(
         modifier = Modifier
@@ -88,7 +86,7 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onCocktailClick(cocktail.strDrink) }
+                    .clickable { onCocktailClick(cocktail.idDrink) }
                     .padding(12.dp)
             )
         }
@@ -96,23 +94,45 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
 }
 
 @Composable
-fun AboutCocktailScreen(cocktailName: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Szczegóły koktajlu:",
-            style = MaterialTheme.typography.headlineSmall
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = cocktailName,
-            style = MaterialTheme.typography.bodyLarge
-        )
+fun AboutCocktailScreen(cocktailId: String) {
+
+    val context = LocalContext.current
+    val cocktail by produceState<CocktailDetails?>(initialValue = null) {
+        try {
+            value = apiService.getCocktailDetails("https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=${cocktailId}").drinks.firstOrNull()
+            Log.d("CocktailDetails", "Fetched cocktail: $value")
+        } catch (e: Exception) {
+            Toast.makeText(context, "Failed to fetch cocktail details", Toast.LENGTH_SHORT).show()
+        }
     }
+
+    cocktail?.let {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Szczegóły koktajlu:",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Nazwa: ${it.strDrink}",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Instrukcje: ${it.strInstructions}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    } ?: Text(
+        text = "Brak danych o koktajlu.",
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.padding(24.dp)
+    )
 }
 
 @Preview(showBackground = true)

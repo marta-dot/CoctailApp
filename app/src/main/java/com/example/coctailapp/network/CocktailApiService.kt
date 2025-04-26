@@ -26,5 +26,8 @@ data class CocktailDetails(
     val strIngredient2: String?,
     val strIngredient3: String?,
     val strIngredient4: String?,
-    val strIngredient5: String?
+    val strIngredient5: String?,
+    val strIngredient6: String?,
+    val strIngredient7: String?,
+    val strIngredient8: String?
 )

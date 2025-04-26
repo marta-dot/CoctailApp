@@ -43,6 +43,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation ("androidx.compose.runtime:runtime:1.8.0")
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -61,5 +62,10 @@ dependencies {
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
+    implementation ("androidx.compose.material:material-icons-extended:1.4.3")
+
+//    implementation ("com.squareup.retrofit2:retrofit:2.9.0")
+//    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
+
 
 }

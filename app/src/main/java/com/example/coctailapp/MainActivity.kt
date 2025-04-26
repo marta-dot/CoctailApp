@@ -7,15 +7,38 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Stop
+
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
+
+
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.compose.rememberNavController
@@ -24,9 +47,12 @@ import com.example.coctailapp.network.Cocktail
 import com.example.coctailapp.network.CocktailApiService
 import com.example.coctailapp.network.CocktailDetails
 import com.example.coctailapp.network.RetrofitInstance.apiService
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coctailapp.ui.theme.CoctailAppTheme
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import kotlinx.coroutines.delay
+import kotlin.sequences.ifEmpty
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,6 +133,19 @@ fun AboutCocktailScreen(cocktailId: String) {
     }
 
     cocktail?.let {
+
+        val ingredients = listOfNotNull(
+            it.strIngredient1,
+            it.strIngredient2,
+            it.strIngredient3,
+            it.strIngredient4,
+            it.strIngredient5,
+            it.strIngredient6,
+            it.strIngredient7,
+            it.strIngredient8
+        ).filter { ingredient -> ingredient.isNotBlank() }
+
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -122,11 +161,29 @@ fun AboutCocktailScreen(cocktailId: String) {
                 text = "Nazwa: ${it.strDrink}",
                 style = MaterialTheme.typography.bodyLarge
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Składniki:",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            ingredients.forEach { ingredient ->
+                Text(
+                    text = "- $ingredient",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Instrukcje: ${it.strInstructions}",
                 style = MaterialTheme.typography.bodyMedium
             )
+
+            Column {
+                Text(text = "Minutnik")
+                TimerScreen()
+            }
         }
     } ?: Text(
         text = "Brak danych o koktajlu.",
@@ -134,6 +191,114 @@ fun AboutCocktailScreen(cocktailId: String) {
         modifier = Modifier.padding(24.dp)
     )
 }
+
+@Composable
+fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
+    val timeLeft by viewModel.timeLeft
+    val isRunning by viewModel.isRunning
+
+    var minutes by rememberSaveable { mutableStateOf("") }
+    var seconds by rememberSaveable { mutableStateOf("") }
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+
+        if (!isRunning) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = minutes,
+                    onValueChange = {
+                        if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                            minutes = it
+                        }
+                    },
+                    label = { Text("Minuty") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+
+                Text(
+                    text = ":",
+                    fontSize = 32.sp,
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .padding(horizontal = 8.dp)
+                )
+
+                OutlinedTextField(
+                    value = seconds,
+                    onValueChange = {
+                        if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                            seconds = it
+                        }
+                    },
+                    label = { Text("Sekundy") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val totalSeconds = (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
+                            viewModel.startTimer(totalSeconds)
+                        }
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else {
+
+            val minutes = timeLeft / 60
+            val seconds = timeLeft % 60
+            Text(
+                text = String.format("%d:%02d", minutes, seconds),
+                fontSize = 32.sp,
+                fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            IconButton(
+                onClick = {
+                    val totalSeconds = (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
+                    viewModel.startTimer(totalSeconds)
+                }
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Start")
+            }
+            IconButton(onClick = { viewModel.stopTimer() }) {
+                Icon(Icons.Default.Pause, contentDescription = "Pause")
+            }
+            IconButton(onClick = { viewModel.resetTimer() }) {
+                Icon(Icons.Default.Stop, contentDescription = "Stop")
+            }
+        }
+    }
+}
+
 
 @Preview(showBackground = true)
 @Composable

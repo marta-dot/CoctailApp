@@ -11,8 +11,10 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
@@ -51,6 +53,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coctailapp.ui.theme.CoctailAppTheme
 import kotlinx.coroutines.delay
+import kotlin.compareTo
 import kotlin.sequences.ifEmpty
 
 
@@ -149,7 +152,8 @@ fun AboutCocktailScreen(cocktailId: String) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.Center
         ) {
             Text(
@@ -216,7 +220,7 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
                 OutlinedTextField(
                     value = minutes,
                     onValueChange = {
-                        if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                        if ((it.isEmpty() || it.all { char -> char.isDigit() }) && it.length <= 2) {
                             minutes = it
                         }
                     },
@@ -242,7 +246,7 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
                 OutlinedTextField(
                     value = seconds,
                     onValueChange = {
-                        if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                        if ((it.isEmpty() || it.all { char -> char.isDigit() }) && it.length <= 2) {
                             seconds = it
                         }
                     },
@@ -289,10 +293,23 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = "Start")
             }
-            IconButton(onClick = { viewModel.stopTimer() }) {
+            IconButton(
+                onClick = {
+                    viewModel.stopTimer()
+                    // Convert timeLeft to minutes and seconds and update input fields
+                    minutes = (timeLeft / 60).toString()
+                    seconds = (timeLeft % 60).toString().padStart(2, '0')
+                }
+            ) {
                 Icon(Icons.Default.Pause, contentDescription = "Pause")
             }
-            IconButton(onClick = { viewModel.resetTimer() }) {
+            IconButton(
+                onClick = {
+                    viewModel.resetTimer()
+                    minutes = ""  // Clear instead of setting to "0"
+                    seconds = ""  // Clear instead of setting to "0"
+                }
+            ) {
                 Icon(Icons.Default.Stop, contentDescription = "Stop")
             }
         }

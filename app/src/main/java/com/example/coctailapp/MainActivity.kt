@@ -24,7 +24,6 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 
 
-
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -69,15 +68,65 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp() {
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val tabs = listOf("Główna", "Koktajle", "Inne")
+
+    Scaffold(
+        topBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 4.dp
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    )
+                    {
+                        Text(
+                            text = "",
+                        )
+                    }
+                    // Tabs
+                    TabRow(
+                        selectedTabIndex = selectedTabIndex,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                text = { Text(title) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    )
+    { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            when (selectedTabIndex) {
+                0 -> Text("Główna zawartość")
+                1 -> Text("Koktajle")
+                2 -> Text("Inne")
+            }
+        }
+    }
+
+
+// Set up the navigation controller
     val navController = rememberNavController()
 
     NavHost(navController, startDestination = "cocktail_list") {
         composable("cocktail_list") {
-            CocktailListScreen { selectedCocktail ->
-                navController.navigate("about_cocktail/${selectedCocktail}")
-            }
+//            CocktailListScreen { selectedCocktail ->
+//                navController.navigate("about_cocktail/${selectedCocktail}")
+//            }
         }
         composable(
             "about_cocktail/{idDrink}",
@@ -95,7 +144,8 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
     val context = LocalContext.current
     val cocktails by produceState<List<Cocktail>>(initialValue = emptyList()) {
         try {
-            value = apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?c=Cocktail").drinks
+            value =
+                apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?c=Cocktail").drinks
             Log.d("CocktailList", "Fetched cocktails: $value")
         } catch (e: Exception) {
             Toast.makeText(context, "Failed to fetch cocktails", Toast.LENGTH_SHORT).show()
@@ -120,6 +170,7 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
             )
         }
     }
+
 }
 
 @Composable
@@ -128,7 +179,8 @@ fun AboutCocktailScreen(cocktailId: String) {
     val context = LocalContext.current
     val cocktail by produceState<CocktailDetails?>(initialValue = null) {
         try {
-            value = apiService.getCocktailDetails("https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=${cocktailId}").drinks.firstOrNull()
+            value =
+                apiService.getCocktailDetails("https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=${cocktailId}").drinks.firstOrNull()
             Log.d("CocktailDetails", "Fetched cocktail: $value")
         } catch (e: Exception) {
             Toast.makeText(context, "Failed to fetch cocktail details", Toast.LENGTH_SHORT).show()
@@ -257,7 +309,8 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
                     ),
                     keyboardActions = KeyboardActions(
                         onDone = {
-                            val totalSeconds = (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
+                            val totalSeconds =
+                                (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
                             viewModel.startTimer(totalSeconds)
                         }
                     ),
@@ -287,7 +340,8 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
         ) {
             IconButton(
                 onClick = {
-                    val totalSeconds = (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
+                    val totalSeconds =
+                        (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
                     viewModel.startTimer(totalSeconds)
                 }
             ) {

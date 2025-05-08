@@ -71,8 +71,52 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp() {
+    val navController = rememberNavController()
+
+// Set up the navigation controller
+    NavHost(navController, startDestination = "cocktail_list") {
+        composable("cocktail_list") {
+            CocktailListScreen { selectedCocktail ->
+                navController.navigate("about_cocktail/${selectedCocktail}")
+            }
+        }
+        composable(
+            "about_cocktail/{idDrink}",
+            arguments = listOf(navArgument("idDrink") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val cocktailId = backStackEntry.arguments?.getString("idDrink") ?: "Unknown"
+            AboutCocktailScreen(cocktailId)
+        }
+    }
+}
+
+
+@Composable
+fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
+    val context = LocalContext.current
+    val cocktailsAlco by produceState<List<Cocktail>>(initialValue = emptyList()) {
+        try {
+            value =
+                apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?a=Alcoholic").drinks
+            Log.d("CocktailList", "Fetched cocktails: $value")
+        } catch (e: Exception) {
+            Toast.makeText(context, "Failed to fetch cocktails", Toast.LENGTH_SHORT).show()
+            Log.e("CocktailList", "Error fetching cocktails", e)
+        }
+    }
+    val cocktailsNonAlco by produceState<List<Cocktail>>(initialValue = emptyList()) {
+        try {
+            value =
+                apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?a=Non_Alcoholic").drinks
+            Log.d("CocktailList", "Fetched cocktails: $value")
+        } catch (e: Exception) {
+            Toast.makeText(context, "Failed to fetch cocktails", Toast.LENGTH_SHORT).show()
+            Log.e("CocktailList", "Error fetching cocktails", e)
+        }
+    }
+
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("Główna", "Koktajle", "Inne")
+    val tabs = listOf("Główna", "Alco", "Non Alco")
 
     Scaffold(
         topBar = {
@@ -112,62 +156,45 @@ fun MainApp() {
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTabIndex) {
                 0 -> Text("Główna zawartość")
-                1 -> Text("Koktajle")
-                2 -> Text("Inne")
+                1 -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(cocktailsAlco) { cocktail ->
+                            Text(
+                                text = cocktail.strDrink,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onCocktailClick(cocktail.idDrink) }
+                                    .padding(12.dp)
+                            )
+                        }
+                    }
+                }
+                2 -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(cocktailsNonAlco) { cocktail ->
+                            Text(
+                                text = cocktail.strDrink,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onCocktailClick(cocktail.idDrink) }
+                                    .padding(12.dp)
+                            )
+                        }
+                    }
+                }
             }
-        }
-    }
-
-
-// Set up the navigation controller
-    val navController = rememberNavController()
-
-    NavHost(navController, startDestination = "cocktail_list") {
-        composable("cocktail_list") {
-//            CocktailListScreen { selectedCocktail ->
-//                navController.navigate("about_cocktail/${selectedCocktail}")
-//            }
-        }
-        composable(
-            "about_cocktail/{idDrink}",
-            arguments = listOf(navArgument("idDrink") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val cocktailId = backStackEntry.arguments?.getString("idDrink") ?: "Unknown"
-            AboutCocktailScreen(cocktailId)
-        }
-    }
-}
-
-
-@Composable
-fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
-    val context = LocalContext.current
-    val cocktails by produceState<List<Cocktail>>(initialValue = emptyList()) {
-        try {
-            value =
-                apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?c=Cocktail").drinks
-            Log.d("CocktailList", "Fetched cocktails: $value")
-        } catch (e: Exception) {
-            Toast.makeText(context, "Failed to fetch cocktails", Toast.LENGTH_SHORT).show()
-            Log.e("CocktailList", "Error fetching cocktails", e)
-        }
-    }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(cocktails) { cocktail ->
-            Text(
-                text = cocktail.strDrink,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onCocktailClick(cocktail.idDrink) }
-                    .padding(12.dp)
-            )
         }
     }
 

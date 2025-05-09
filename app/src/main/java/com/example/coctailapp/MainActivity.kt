@@ -10,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -19,7 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Stop
-
+// Add this import
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 
@@ -157,44 +160,68 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
             when (selectedTabIndex) {
                 0 -> Text("Główna zawartość")
                 1 -> {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         items(cocktailsAlco) { cocktail ->
-                            Text(
-                                text = cocktail.strDrink,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onCocktailClick(cocktail.idDrink) }
-                                    .padding(12.dp)
-                            )
+                            CocktailCard(cocktail, onCocktailClick)
                         }
                     }
                 }
+
                 2 -> {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+//                    LazyColumn(
+//                        modifier = Modifier
+//                            .fillMaxSize()
+//                            .padding(16.dp),
+//                        verticalArrangement = Arrangement.spacedBy(12.dp)
+//                    ) {
+//                        items(cocktailsNonAlco) { cocktail ->
+//                            CocktailCard(cocktail, onCocktailClick)
+//
+//                        }
+//                    }
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         items(cocktailsNonAlco) { cocktail ->
-                            Text(
-                                text = cocktail.strDrink,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onCocktailClick(cocktail.idDrink) }
-                                    .padding(12.dp)
-                            )
+                            CocktailCard(cocktail, onCocktailClick)
                         }
                     }
                 }
             }
+        }
+
+    }
+}
+
+@Composable
+fun CocktailCard(x0: Cocktail, x1: (String) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+            .clickable { x1(x0.idDrink) },
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = x0.strDrink,
+                style = MaterialTheme.typography.headlineSmall
+            )
         }
     }
 
@@ -210,7 +237,8 @@ fun AboutCocktailScreen(cocktailId: String) {
                 apiService.getCocktailDetails("https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=${cocktailId}").drinks.firstOrNull()
             Log.d("CocktailDetails", "Fetched cocktail: $value")
         } catch (e: Exception) {
-            Toast.makeText(context, "Failed to fetch cocktail details", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Failed to fetch cocktail details", Toast.LENGTH_SHORT)
+                .show()
         }
     }
 

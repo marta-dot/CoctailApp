@@ -15,6 +15,7 @@ data class CocktailResponse(val drinks: List<Cocktail>)
 data class DetailsResponse(val drinks: List<CocktailDetails>)
 data class Cocktail(
     val idDrink: String,
+    val strDrinkThumb: String,
     val strDrink: String
 )
 data class CocktailDetails(

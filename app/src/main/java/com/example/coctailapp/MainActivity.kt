@@ -1,11 +1,14 @@
 package com.example.coctailapp
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -23,11 +26,13 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Stop
 // Add this import
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-
+import coil.compose.AsyncImage
 
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -36,6 +41,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -218,10 +224,19 @@ fun CocktailCard(x0: Cocktail, x1: (String) -> Unit) {
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            AsyncImage(
+                model = x0.strDrinkThumb,
+                contentDescription = "Drink"
+            )
+
             Text(
                 text = x0.strDrink,
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.headlineSmall,
+
+                fontSize = 16.sp,
+                lineHeight = 18.sp
             )
+
         }
     }
 
@@ -242,59 +257,71 @@ fun AboutCocktailScreen(cocktailId: String) {
         }
     }
 
-    cocktail?.let {
+    cocktail?.let { cocktail ->
 
         val ingredients = listOfNotNull(
-            it.strIngredient1,
-            it.strIngredient2,
-            it.strIngredient3,
-            it.strIngredient4,
-            it.strIngredient5,
-            it.strIngredient6,
-            it.strIngredient7,
-            it.strIngredient8
+            cocktail.strIngredient1,
+            cocktail.strIngredient2,
+            cocktail.strIngredient3,
+            cocktail.strIngredient4,
+            cocktail.strIngredient5,
+            cocktail.strIngredient6,
+            cocktail.strIngredient7,
+            cocktail.strIngredient8
         ).filter { ingredient -> ingredient.isNotBlank() }
 
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center
+        Surface(
+            //color = MaterialTheme.colorScheme.primary,
+            //tonalElevation = 4.dp
         ) {
-            Text(
-                text = "Szczegóły koktajlu:",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "Nazwa: ${it.strDrink}",
-                style = MaterialTheme.typography.bodyLarge
-            )
+            Scaffold(
+                floatingActionButton = { SmsFab(ingredients) },
+                content = { padding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp)
+                            .verticalScroll(rememberScrollState()) // Scroll na cały ekran
+                    ) {
+                        AsyncImage(
+                            model = cocktail.strDrinkThumb,
+                            contentDescription = "Drink"
+                        )
+                        Text(
+                            text = "Szczegóły koktajlu:",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Nazwa: ${cocktail.strDrink}",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
 
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "Składniki:",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            ingredients.forEach { ingredient ->
-                Text(
-                    text = "- $ingredient",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Składniki:",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        ingredients.forEach { ingredient ->
+                            Text(
+                                text = "- $ingredient",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Instrukcje: ${it.strInstructions}",
-                style = MaterialTheme.typography.bodyMedium
-            )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Instrukcje: ${cocktail.strInstructions}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
 
-            Column {
-                Text(text = "Minutnik")
-                TimerScreen()
-            }
+                        Column {
+                            Text(text = "Minutnik")
+                            TimerScreen()
+                        }
+                    }
+                }
+            )
         }
     } ?: Text(
         text = "Brak danych o koktajlu.",
@@ -422,6 +449,26 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
                 Icon(Icons.Default.Stop, contentDescription = "Stop")
             }
         }
+    }
+}
+
+@Composable
+fun SmsFab(ingredients: List<String>) {
+    val context = LocalContext.current
+
+    FloatingActionButton(
+        onClick = {
+            val phoneNumber = "123456789" // ← wpisz numer
+            val message = ingredients.joinToString(", ")
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse("sms:$phoneNumber")
+                putExtra("sms_body", message)
+            }
+            context.startActivity(intent)
+        },
+        containerColor = MaterialTheme.colorScheme.primary
+    ) {
+        Icon(Icons.Default.Send, contentDescription = "Wyślij SMS")
     }
 }
 

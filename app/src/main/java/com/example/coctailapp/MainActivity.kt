@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -24,24 +25,23 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Stop
-// Add this import
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import coil.compose.AsyncImage
 
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,48 +54,91 @@ import androidx.navigation.compose.*
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.coctailapp.network.Cocktail
-import com.example.coctailapp.network.CocktailApiService
 import com.example.coctailapp.network.CocktailDetails
 import com.example.coctailapp.network.RetrofitInstance.apiService
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coctailapp.ui.theme.CoctailAppTheme
-import kotlinx.coroutines.delay
-import kotlin.compareTo
-import kotlin.sequences.ifEmpty
 
 
 class MainActivity : ComponentActivity() {
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             CoctailAppTheme {
-                MainApp()
+                val windowSizeClass = calculateWindowSizeClass(this)
+                MainApp(windowSizeClass)
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainApp() {
+fun MainApp(windowSizeClass: WindowSizeClass) {
     val navController = rememberNavController()
+    var selectedCocktailId by rememberSaveable { mutableStateOf<String?>(null) }
 
-// Set up the navigation controller
-    NavHost(navController, startDestination = "cocktail_list") {
-        composable("cocktail_list") {
-            CocktailListScreen { selectedCocktail ->
-                navController.navigate("about_cocktail/${selectedCocktail}")
+    val isTablet = windowSizeClass.widthSizeClass >= WindowWidthSizeClass.Medium &&
+                  windowSizeClass.heightSizeClass >= WindowHeightSizeClass.Medium
+
+    if (isTablet) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f)) {
+                CocktailListScreen { cocktailId ->
+                    selectedCocktailId = cocktailId
+                }
+            }
+
+            // Divider
+            Divider(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(1.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Detail pane (2/3 of screen)
+            Box(modifier = Modifier.weight(2f)) {
+                key(selectedCocktailId) {
+                    selectedCocktailId?.let {
+                        AboutCocktailScreen(it)
+                    } ?: PlaceholderScreen()
+                }
             }
         }
-        composable(
-            "about_cocktail/{idDrink}",
-            arguments = listOf(navArgument("idDrink") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val cocktailId = backStackEntry.arguments?.getString("idDrink") ?: "Unknown"
-            AboutCocktailScreen(cocktailId)
+    } else {
+        NavHost(navController, startDestination = "cocktail_list") {
+            composable("cocktail_list") {
+                CocktailListScreen { selectedCocktail ->
+                    navController.navigate("about_cocktail/${selectedCocktail}")
+                }
+            }
+            composable(
+                "about_cocktail/{idDrink}",
+                arguments = listOf(navArgument("idDrink") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val cocktailId = backStackEntry.arguments?.getString("idDrink") ?: "Unknown"
+                AboutCocktailScreen(cocktailId)
+            }
         }
+    }
+}
+
+@Composable
+private fun PlaceholderScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Wybierz koktajl aby zobaczyć szczegóły",
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface  // Add this to ensure text is visible
+        )
     }
 }
 
@@ -124,7 +167,7 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
         }
     }
 
-    var selectedTabIndex by remember { mutableStateOf(0) }
+    var selectedTabIndex by rememberSaveable { mutableStateOf(0) }
     val tabs = listOf("Główna", "Alco", "Non Alco")
 
     Scaffold(
@@ -244,90 +287,106 @@ fun CocktailCard(x0: Cocktail, x1: (String) -> Unit) {
 
 @Composable
 fun AboutCocktailScreen(cocktailId: String) {
-
     val context = LocalContext.current
+    var isLoading by remember { mutableStateOf(true) }
+
     val cocktail by produceState<CocktailDetails?>(initialValue = null) {
+        isLoading = true
         try {
             value =
                 apiService.getCocktailDetails("https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=${cocktailId}").drinks.firstOrNull()
             Log.d("CocktailDetails", "Fetched cocktail: $value")
         } catch (e: Exception) {
-            Toast.makeText(context, "Failed to fetch cocktail details", Toast.LENGTH_SHORT)
-                .show()
+            Toast.makeText(context, "Failed to fetch cocktail details", Toast.LENGTH_SHORT).show()
+        } finally {
+            isLoading = false
         }
     }
 
-    cocktail?.let { cocktail ->
+    when {
+        isLoading -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
 
-        val ingredients = listOfNotNull(
-            cocktail.strIngredient1,
-            cocktail.strIngredient2,
-            cocktail.strIngredient3,
-            cocktail.strIngredient4,
-            cocktail.strIngredient5,
-            cocktail.strIngredient6,
-            cocktail.strIngredient7,
-            cocktail.strIngredient8
-        ).filter { ingredient -> ingredient.isNotBlank() }
+        cocktail != null -> {
+            val ingredients = listOfNotNull(
+                cocktail!!.strIngredient1,
+                cocktail!!.strIngredient2,
+                cocktail!!.strIngredient3,
+                cocktail!!.strIngredient4,
+                cocktail!!.strIngredient5,
+                cocktail!!.strIngredient6,
+                cocktail!!.strIngredient7,
+                cocktail!!.strIngredient8
+            ).filter { ingredient -> ingredient.isNotBlank() }
 
-        Surface(
-            //color = MaterialTheme.colorScheme.primary,
-            //tonalElevation = 4.dp
-        ) {
-            Scaffold(
-                floatingActionButton = { SmsFab(ingredients) },
-                content = { padding ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp)
-                            .verticalScroll(rememberScrollState()) // Scroll na cały ekran
-                    ) {
-                        AsyncImage(
-                            model = cocktail.strDrinkThumb,
-                            contentDescription = "Drink"
-                        )
-                        Text(
-                            text = "Szczegóły koktajlu:",
-                            style = MaterialTheme.typography.headlineSmall
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Nazwa: ${cocktail.strDrink}",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Składniki:",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        ingredients.forEach { ingredient ->
+            Surface {
+                Scaffold(
+                    floatingActionButton = { SmsFab(ingredients) },
+                    content = { padding ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            AsyncImage(
+                                model = cocktail!!.strDrinkThumb,
+                                contentDescription = "Drink"
+                            )
                             Text(
-                                text = "- $ingredient",
+                                text = "Szczegóły koktajlu:",
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Nazwa: ${cocktail!!.strDrink}",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Składniki:",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            ingredients.forEach { ingredient ->
+                                Text(
+                                    text = "- $ingredient",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Instrukcje: ${cocktail!!.strInstructions}",
                                 style = MaterialTheme.typography.bodyMedium
                             )
-                        }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Instrukcje: ${cocktail.strInstructions}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-
-                        Column {
-                            Text(text = "Minutnik")
-                            TimerScreen()
+                            Column {
+                                Text(text = "Minutnik")
+                                TimerScreen()
+                            }
                         }
                     }
-                }
+                )
+            }
+        }
+
+        else -> {
+            Text(
+                text = "Brak danych o koktajlu.",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(24.dp)
             )
         }
-    } ?: Text(
-        text = "Brak danych o koktajlu.",
-        style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.padding(24.dp)
-    )
+    }
 }
 
 @Composable

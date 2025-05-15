@@ -54,6 +54,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("androidx.compose.material3:material3-window-size-class:1.2.0")
+    implementation(libs.androidx.material3.window.size.class1.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -65,7 +66,12 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation ("androidx.compose.material:material-icons-extended:1.4.3")
-
+    implementation ("com.google.accompanist:accompanist-pager:0.34.0")
+    implementation ("com.google.accompanist:accompanist-systemuicontroller:0.34.0")
+    implementation("androidx.compose.material3:material3:1.1.2") // lub nowsza
+    implementation("androidx.compose.foundation:foundation:1.5.0") // lub nowsza
+    implementation("androidx.compose.ui:ui:1.9.0-alpha01")
+    implementation("me.onebone:toolbar-compose:2.3.2")
 //    implementation ("com.squareup.retrofit2:retrofit:2.9.0")
 //    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
 

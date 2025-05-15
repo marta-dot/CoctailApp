@@ -41,7 +41,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,6 +61,9 @@ import com.example.coctailapp.network.CocktailDetails
 import com.example.coctailapp.network.RetrofitInstance.apiService
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coctailapp.ui.theme.CoctailAppTheme
+import me.onebone.toolbar.CollapsingToolbarScaffold
+import me.onebone.toolbar.ScrollStrategy
+import me.onebone.toolbar.rememberCollapsingToolbarScaffoldState
 
 
 class MainActivity : ComponentActivity() {
@@ -326,51 +332,84 @@ fun AboutCocktailScreen(cocktailId: String) {
                 cocktail!!.strIngredient7,
                 cocktail!!.strIngredient8
             ).filter { ingredient -> ingredient.isNotBlank() }
-
+            val state = rememberCollapsingToolbarScaffoldState()
             Surface {
                 Scaffold(
                     floatingActionButton = { SmsFab(ingredients) },
                     content = { padding ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp)
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            AsyncImage(
-                                model = cocktail!!.strDrinkThumb,
-                                contentDescription = "Drink"
-                            )
-                            Text(
-                                text = "Szczegóły koktajlu:",
-                                style = MaterialTheme.typography.headlineSmall
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Nazwa: ${cocktail!!.strDrink}",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Składniki:",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            ingredients.forEach { ingredient ->
-                                Text(
-                                    text = "- $ingredient",
-                                    style = MaterialTheme.typography.bodyMedium
+                        CollapsingToolbarScaffold(
+                            modifier = Modifier,
+                            state = state,
+                            scrollStrategy = ScrollStrategy.EnterAlways,
+                            toolbar = {
+                                val textSize = (18 + (30 - 12) * state.toolbarState.progress).sp
+                                Box(
+                                    modifier = Modifier.fillMaxSize().height(120.dp).pin()
+                                        .background(color = MaterialTheme.colorScheme.primary)
                                 )
-                            }
+                                AsyncImage(
+                                    model = cocktail!!.strDrinkThumb,
+                                    contentDescription = "Drink Image",
+                                    alpha = if (textSize.value <= 24f) 0f else 1f,
+                                    contentScale = ContentScale.FillBounds,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Text(cocktail!!.strDrink,
+                                    style = TextStyle(fontSize = textSize, color = Color.White),
+                                    modifier = Modifier.padding(16.dp).road(whenCollapsed = Alignment.TopCenter, whenExpanded = Alignment.BottomCenter))
 
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Instrukcje: ${cocktail!!.strInstructions}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            }) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .verticalScroll(rememberScrollState())
+                                    .fillMaxSize()
+                            ) {
+//                AsyncImage(
+//                    model = cocktail.strDrinkThumb,
+//                    contentDescription = "Drink Image",
+//                    contentScale = ContentScale.Crop,
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .height(250.dp)
+//                )
 
-                            Column {
-                                Text(text = "Minutnik")
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = "Składniki:",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+
+                                ingredients.forEach { ingredient ->
+                                    Text(
+                                        text = "- $ingredient",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = "Instrukcje:",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                                Text(
+                                    text = cocktail!!.strInstructions ?: "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = "Minutnik:",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
                                 TimerScreen()
                             }
                         }
@@ -540,5 +579,114 @@ fun DefaultPreview() {
     }
 }
 
+@Composable
+fun Toolbar(cocktailId: String)
+{
+val context = LocalContext.current
+val cocktail by produceState<CocktailDetails?>(initialValue = null) {
+    try {
+        value = apiService
+            .getCocktailDetails("https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=${cocktailId}")
+            .drinks.firstOrNull()
+        Log.d("CocktailDetails", "Fetched cocktail: $value")
+    } catch (e: Exception) {
+        Toast.makeText(context, "Failed to fetch cocktail details", Toast.LENGTH_SHORT).show()
+    }
+}
 
+cocktail?.let { cocktail ->
+    val ingredients = listOfNotNull(
+        cocktail.strIngredient1,
+        cocktail.strIngredient2,
+        cocktail.strIngredient3,
+        cocktail.strIngredient4,
+        cocktail.strIngredient5,
+        cocktail.strIngredient6,
+        cocktail.strIngredient7,
+        cocktail.strIngredient8
+    ).filter { it.isNotBlank() }
+    val state = rememberCollapsingToolbarScaffoldState();
+
+    CollapsingToolbarScaffold(
+        modifier = Modifier,
+        state = state,
+        scrollStrategy = ScrollStrategy.EnterAlways,
+        toolbar = {
+            val textSize = (18 + (30 - 12) * state.toolbarState.progress).sp
+            Box(
+                modifier = Modifier.fillMaxSize().height(120.dp).pin()
+                    .background(color = MaterialTheme.colorScheme.primary)
+            )
+            AsyncImage(
+                model = cocktail.strDrinkThumb,
+                contentDescription = "Drink Image",
+                alpha = if (textSize.value <= 24f) 0f else 1f,
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(cocktail.strDrink,
+                style = TextStyle(fontSize = textSize, color = Color.White),
+                modifier = Modifier.padding(16.dp).road(whenCollapsed = Alignment.TopCenter, whenExpanded = Alignment.BottomCenter))
+
+        }) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+                .fillMaxSize()
+        ) {
+//                AsyncImage(
+//                    model = cocktail.strDrinkThumb,
+//                    contentDescription = "Drink Image",
+//                    contentScale = ContentScale.Crop,
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .height(250.dp)
+//                )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Składniki:",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+
+            ingredients.forEach { ingredient ->
+                Text(
+                    text = "- $ingredient",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Instrukcje:",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Text(
+                text = cocktail.strInstructions ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Minutnik:",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            TimerScreen()
+        }
+    }
+}?: Text(
+text = "Brak danych o koktajlu.",
+style = MaterialTheme.typography.bodyLarge,
+modifier = Modifier.padding(24.dp)
+)
+}
 

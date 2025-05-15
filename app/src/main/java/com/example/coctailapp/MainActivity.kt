@@ -345,7 +345,7 @@ fun AboutCocktailScreen(cocktailId: String) {
                                 val textSize = (18 + (30 - 12) * state.toolbarState.progress).sp
                                 Box(
                                     modifier = Modifier.fillMaxSize().height(120.dp).pin()
-                                        .background(color = MaterialTheme.colorScheme.primary)
+                                        .background(color = MaterialTheme.colorScheme.primaryContainer)
                                 )
                                 AsyncImage(
                                     model = cocktail!!.strDrinkThumb,
@@ -577,116 +577,5 @@ fun DefaultPreview() {
     CoctailAppTheme {
         CocktailListScreen { }
     }
-}
-
-@Composable
-fun Toolbar(cocktailId: String)
-{
-val context = LocalContext.current
-val cocktail by produceState<CocktailDetails?>(initialValue = null) {
-    try {
-        value = apiService
-            .getCocktailDetails("https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=${cocktailId}")
-            .drinks.firstOrNull()
-        Log.d("CocktailDetails", "Fetched cocktail: $value")
-    } catch (e: Exception) {
-        Toast.makeText(context, "Failed to fetch cocktail details", Toast.LENGTH_SHORT).show()
-    }
-}
-
-cocktail?.let { cocktail ->
-    val ingredients = listOfNotNull(
-        cocktail.strIngredient1,
-        cocktail.strIngredient2,
-        cocktail.strIngredient3,
-        cocktail.strIngredient4,
-        cocktail.strIngredient5,
-        cocktail.strIngredient6,
-        cocktail.strIngredient7,
-        cocktail.strIngredient8
-    ).filter { it.isNotBlank() }
-    val state = rememberCollapsingToolbarScaffoldState();
-
-    CollapsingToolbarScaffold(
-        modifier = Modifier,
-        state = state,
-        scrollStrategy = ScrollStrategy.EnterAlways,
-        toolbar = {
-            val textSize = (18 + (30 - 12) * state.toolbarState.progress).sp
-            Box(
-                modifier = Modifier.fillMaxSize().height(120.dp).pin()
-                    .background(color = MaterialTheme.colorScheme.primary)
-            )
-            AsyncImage(
-                model = cocktail.strDrinkThumb,
-                contentDescription = "Drink Image",
-                alpha = if (textSize.value <= 24f) 0f else 1f,
-                contentScale = ContentScale.FillBounds,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(cocktail.strDrink,
-                style = TextStyle(fontSize = textSize, color = Color.White),
-                modifier = Modifier.padding(16.dp).road(whenCollapsed = Alignment.TopCenter, whenExpanded = Alignment.BottomCenter))
-
-        }) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-                .fillMaxSize()
-        ) {
-//                AsyncImage(
-//                    model = cocktail.strDrinkThumb,
-//                    contentDescription = "Drink Image",
-//                    contentScale = ContentScale.Crop,
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .height(250.dp)
-//                )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Składniki:",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            ingredients.forEach { ingredient ->
-                Text(
-                    text = "- $ingredient",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Instrukcje:",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Text(
-                text = cocktail.strInstructions ?: "",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Minutnik:",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            TimerScreen()
-        }
-    }
-}?: Text(
-text = "Brak danych o koktajlu.",
-style = MaterialTheme.typography.bodyLarge,
-modifier = Modifier.padding(24.dp)
-)
 }
 

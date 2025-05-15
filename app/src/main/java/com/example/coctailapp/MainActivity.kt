@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.runtime.mutableStateOf
 import coil.compose.AsyncImage
@@ -60,6 +61,7 @@ import com.example.coctailapp.network.Cocktail
 import com.example.coctailapp.network.CocktailDetails
 import com.example.coctailapp.network.RetrofitInstance.apiService
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.coctailapp.ui.theme.CoctailAppTheme
 import me.onebone.toolbar.CollapsingToolbarScaffold
 import me.onebone.toolbar.ScrollStrategy
@@ -108,7 +110,7 @@ fun MainApp(windowSizeClass: WindowSizeClass) {
             Box(modifier = Modifier.weight(2f)) {
                 key(selectedCocktailId) {
                     selectedCocktailId?.let {
-                        AboutCocktailScreen(it)
+                        AboutCocktailScreen(it,navController)
                     } ?: PlaceholderScreen()
                 }
             }
@@ -125,7 +127,7 @@ fun MainApp(windowSizeClass: WindowSizeClass) {
                 arguments = listOf(navArgument("idDrink") { type = NavType.StringType })
             ) { backStackEntry ->
                 val cocktailId = backStackEntry.arguments?.getString("idDrink") ?: "Unknown"
-                AboutCocktailScreen(cocktailId)
+                AboutCocktailScreen(cocktailId,navController)
             }
         }
     }
@@ -292,7 +294,7 @@ fun CocktailCard(x0: Cocktail, x1: (String) -> Unit) {
 }
 
 @Composable
-fun AboutCocktailScreen(cocktailId: String) {
+fun AboutCocktailScreen(cocktailId: String, navController : NavController) {
     val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
 
@@ -338,26 +340,44 @@ fun AboutCocktailScreen(cocktailId: String) {
                     floatingActionButton = { SmsFab(ingredients) },
                     content = { padding ->
                         CollapsingToolbarScaffold(
+
                             modifier = Modifier,
                             state = state,
                             scrollStrategy = ScrollStrategy.EnterAlways,
                             toolbar = {
                                 val textSize = (18 + (30 - 12) * state.toolbarState.progress).sp
+
                                 Box(
-                                    modifier = Modifier.fillMaxSize().height(120.dp).pin()
+                                    modifier = Modifier.fillMaxSize().height(150.dp).pin()
                                         .background(color = MaterialTheme.colorScheme.primaryContainer)
                                 )
-                                AsyncImage(
-                                    model = cocktail!!.strDrinkThumb,
-                                    contentDescription = "Drink Image",
-                                    alpha = if (textSize.value <= 24f) 0f else 1f,
-                                    contentScale = ContentScale.FillBounds,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Text(cocktail!!.strDrink,
-                                    style = TextStyle(fontSize = textSize, color = Color.White),
-                                    modifier = Modifier.padding(16.dp).road(whenCollapsed = Alignment.TopCenter, whenExpanded = Alignment.BottomCenter))
 
+                                    AsyncImage(
+                                        model = cocktail!!.strDrinkThumb,
+                                        contentDescription = "Drink Image",
+                                        alpha = if (textSize.value <= 24f) 0f else 1f,
+                                        contentScale = ContentScale.FillBounds,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    IconButton(
+                                        onClick = { navController.popBackStack() },
+                                        modifier = Modifier
+                                            .padding(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = Color.White
+                                        )
+                                    }
+                                    Text(
+                                        cocktail!!.strDrink,
+                                        style = TextStyle(fontSize = textSize, color = Color.White),
+                                        modifier = Modifier.padding(16.dp).road(
+                                            whenCollapsed = Alignment.TopCenter,
+                                            whenExpanded = Alignment.BottomCenter
+                                        )
+                                    )
                             }) {
                             Column(
                                 modifier = Modifier

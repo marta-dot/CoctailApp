@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.runtime.mutableStateOf
@@ -63,10 +64,13 @@ import com.example.coctailapp.network.RetrofitInstance.apiService
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.coctailapp.ui.theme.CoctailAppTheme
+import com.google.accompanist.pager.ExperimentalPagerApi
+import kotlinx.coroutines.launch
 import me.onebone.toolbar.CollapsingToolbarScaffold
 import me.onebone.toolbar.ScrollStrategy
 import me.onebone.toolbar.rememberCollapsingToolbarScaffoldState
-
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.filled.Menu
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
@@ -86,16 +90,17 @@ class MainActivity : ComponentActivity() {
 fun MainApp(windowSizeClass: WindowSizeClass) {
     val navController = rememberNavController()
     var selectedCocktailId by rememberSaveable { mutableStateOf<String?>(null) }
-
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     val isTablet = windowSizeClass.widthSizeClass >= WindowWidthSizeClass.Medium &&
                   windowSizeClass.heightSizeClass >= WindowHeightSizeClass.Medium
 
     if (isTablet) {
         Row(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f)) {
-                CocktailListScreen { cocktailId ->
+                CocktailListScreen(onCocktailClick = { cocktailId ->
                     selectedCocktailId = cocktailId
-                }
+                }, onMenuClick = { scope.launch { drawerState.open() } })
             }
 
             // Divider
@@ -110,24 +115,45 @@ fun MainApp(windowSizeClass: WindowSizeClass) {
             Box(modifier = Modifier.weight(2f)) {
                 key(selectedCocktailId) {
                     selectedCocktailId?.let {
-                        AboutCocktailScreen(it,navController)
+                        AboutCocktailScreen(it,navController,onMenuClick = { scope.launch { drawerState.open() } })
                     } ?: PlaceholderScreen()
                 }
             }
         }
     } else {
-        NavHost(navController, startDestination = "cocktail_list") {
-            composable("cocktail_list") {
-                CocktailListScreen { selectedCocktail ->
-                    navController.navigate("about_cocktail/${selectedCocktail}")
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet {
+                    Text("Menu", modifier = Modifier.padding(16.dp))
+                    NavigationDrawerItem(
+                        label = { Text("Lista koktajli") },
+                        selected = false,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            navController.navigate("cocktail_list")
+                        }
+                    )
                 }
             }
-            composable(
-                "about_cocktail/{idDrink}",
-                arguments = listOf(navArgument("idDrink") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val cocktailId = backStackEntry.arguments?.getString("idDrink") ?: "Unknown"
-                AboutCocktailScreen(cocktailId,navController)
+        ) {
+            NavHost(navController, startDestination = "cocktail_list") {
+                composable("cocktail_list") {
+                    CocktailListScreen(
+                        onCocktailClick = { navController.navigate("about_cocktail/$it") },
+                        onMenuClick = { scope.launch { drawerState.open() } }
+                    )
+                }
+                composable(
+                    "about_cocktail/{idDrink}",
+                    arguments = listOf(navArgument("idDrink") { type = NavType.StringType })
+                ) {
+                    AboutCocktailScreen(
+                        it.arguments?.getString("idDrink") ?: "Unknown",
+                        navController = navController,
+                        onMenuClick = { scope.launch { drawerState.open() } }
+                    )
+                }
             }
         }
     }
@@ -151,8 +177,9 @@ private fun PlaceholderScreen() {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
+fun CocktailListScreen(onCocktailClick: (String) -> Unit, onMenuClick: () -> Unit) {
     val context = LocalContext.current
     val cocktailsAlco by produceState<List<Cocktail>>(initialValue = emptyList()) {
         try {
@@ -177,89 +204,61 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit) {
 
     var selectedTabIndex by rememberSaveable { mutableStateOf(0) }
     val tabs = listOf("Główna", "Alco", "Non Alco")
-
+    val pagerState = rememberPagerState(0) {tabs.size}
+    val scope = rememberCoroutineScope()
     Scaffold(
         topBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                tonalElevation = 4.dp
-            ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                    )
-                    {
-                        Text(
-                            text = "",
+            Column {
+                TopAppBar(
+                    title = { Text("Koktajle") },
+                    navigationIcon = {
+                        IconButton(onClick = onMenuClick) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    }
+                )
+                TabRow(selectedTabIndex = pagerState.currentPage) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            text = { Text(title) },
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                scope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            }
                         )
                     }
-                    // Tabs
-                    TabRow(
-                        selectedTabIndex = selectedTabIndex,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        tabs.forEachIndexed { index, title ->
-                            Tab(
-                                selected = selectedTabIndex == index,
-                                onClick = { selectedTabIndex = index },
-                                text = { Text(title) }
-                            )
-                        }
-                    }
                 }
             }
         }
-    )
-    { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {
-            when (selectedTabIndex) {
-                0 -> Text("Główna zawartość")
-                1 -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(cocktailsAlco) { cocktail ->
-                            CocktailCard(cocktail, onCocktailClick)
-                        }
-                    }
-                }
-
-                2 -> {
-//                    LazyColumn(
-//                        modifier = Modifier
-//                            .fillMaxSize()
-//                            .padding(16.dp),
-//                        verticalArrangement = Arrangement.spacedBy(12.dp)
-//                    ) {
-//                        items(cocktailsNonAlco) { cocktail ->
-//                            CocktailCard(cocktail, onCocktailClick)
-//
-//                        }
-//                    }
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(cocktailsNonAlco) { cocktail ->
-                            CocktailCard(cocktail, onCocktailClick)
-                        }
-                    }
-                }
+    ) { padding ->
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) { page ->
+            when (page) {
+                0 -> Text("Aplikacja zapewnia dostęp do najróżniejszych przepisów na koktajle, zapewniając proste instrukcje oraz listę składników", modifier = Modifier.padding(16.dp))
+                1 -> CocktailGrid(cocktailsAlco, onCocktailClick)
+                2 -> CocktailGrid(cocktailsNonAlco, onCocktailClick)
             }
         }
-
+    }
+    }
+@Composable
+fun CocktailGrid(cocktails: List<Cocktail>, onClick: (String) -> Unit) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        contentPadding = PaddingValues(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(cocktails) { CocktailCard(it, onClick) }
     }
 }
-
 @Composable
 fun CocktailCard(x0: Cocktail, x1: (String) -> Unit) {
     Card(
@@ -294,7 +293,7 @@ fun CocktailCard(x0: Cocktail, x1: (String) -> Unit) {
 }
 
 @Composable
-fun AboutCocktailScreen(cocktailId: String, navController : NavController) {
+fun AboutCocktailScreen(cocktailId: String, navController : NavController, onMenuClick: () -> Unit) {
     val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
 
@@ -591,11 +590,11 @@ fun SmsFab(ingredients: List<String>) {
 }
 
 
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    CoctailAppTheme {
-        CocktailListScreen { }
-    }
-}
+//@Preview(showBackground = true)
+//@Composable
+//fun DefaultPreview() {
+//    CoctailAppTheme {
+//        CocktailListScreen { }
+//    }
+//}
 

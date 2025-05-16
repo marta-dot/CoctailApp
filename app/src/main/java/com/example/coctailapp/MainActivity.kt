@@ -70,7 +70,9 @@ import me.onebone.toolbar.CollapsingToolbarScaffold
 import me.onebone.toolbar.ScrollStrategy
 import me.onebone.toolbar.rememberCollapsingToolbarScaffoldState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
@@ -179,41 +181,72 @@ private fun PlaceholderScreen() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CocktailListScreen(onCocktailClick: (String) -> Unit, onMenuClick: () -> Unit) {
+fun CocktailListScreen(
+    onCocktailClick: (String) -> Unit,
+    onMenuClick: () -> Unit
+) {
+    val tabs = listOf("Główna", "Alco", "Non Alco")
+    val pagerState = rememberPagerState(0) {tabs.size}
+    val scope = rememberCoroutineScope()
+
+    var isSearching by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Fetching cocktails (you might want to move these out if already fetched elsewhere)
     val context = LocalContext.current
     val cocktailsAlco by produceState<List<Cocktail>>(initialValue = emptyList()) {
         try {
-            value =
-                apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?a=Alcoholic").drinks
-            Log.d("CocktailList", "Fetched cocktails: $value")
+            value = apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?a=Alcoholic").drinks
         } catch (e: Exception) {
             Toast.makeText(context, "Failed to fetch cocktails", Toast.LENGTH_SHORT).show()
-            Log.e("CocktailList", "Error fetching cocktails", e)
         }
     }
     val cocktailsNonAlco by produceState<List<Cocktail>>(initialValue = emptyList()) {
         try {
-            value =
-                apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?a=Non_Alcoholic").drinks
-            Log.d("CocktailList", "Fetched cocktails: $value")
+            value = apiService.getCocktails("https://www.thecocktaildb.com/api/json/v1/1/filter.php?a=Non_Alcoholic").drinks
         } catch (e: Exception) {
             Toast.makeText(context, "Failed to fetch cocktails", Toast.LENGTH_SHORT).show()
-            Log.e("CocktailList", "Error fetching cocktails", e)
         }
     }
 
-    var selectedTabIndex by rememberSaveable { mutableStateOf(0) }
-    val tabs = listOf("Główna", "Alco", "Non Alco")
-    val pagerState = rememberPagerState(0) {tabs.size}
-    val scope = rememberCoroutineScope()
+    // Filter logic
+    fun filterCocktails(cocktails: List<Cocktail>): List<Cocktail> {
+        val query = searchQuery.trim().lowercase()
+        return if (query.isBlank()) cocktails else {
+            cocktails.filter {
+                it.strDrink.lowercase().contains(query)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Koktajle") },
+                    title = {
+                        if (isSearching) {
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Szukaj...") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            Text("Koktajle")
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = onMenuClick) {
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { isSearching = !isSearching }) {
+                            Icon(
+                                imageVector = if (isSearching) Icons.Default.Close else Icons.Default.Search,
+                                contentDescription = "Szukaj"
+                            )
                         }
                     }
                 )
@@ -223,9 +256,7 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit, onMenuClick: () -> Uni
                             text = { Text(title) },
                             selected = pagerState.currentPage == index,
                             onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
+                                scope.launch { pagerState.animateScrollToPage(index) }
                             }
                         )
                     }
@@ -240,13 +271,14 @@ fun CocktailListScreen(onCocktailClick: (String) -> Unit, onMenuClick: () -> Uni
                 .fillMaxSize()
         ) { page ->
             when (page) {
-                0 -> Text("Aplikacja zapewnia dostęp do najróżniejszych przepisów na koktajle, zapewniając proste instrukcje oraz listę składników", modifier = Modifier.padding(16.dp))
-                1 -> CocktailGrid(cocktailsAlco, onCocktailClick)
-                2 -> CocktailGrid(cocktailsNonAlco, onCocktailClick)
+                0 -> Text("Główna zawartość", modifier = Modifier.padding(16.dp))
+                1 -> CocktailGrid(filterCocktails(cocktailsAlco), onCocktailClick)
+                2 -> CocktailGrid(filterCocktails(cocktailsNonAlco), onCocktailClick)
             }
         }
     }
-    }
+}
+
 @Composable
 fun CocktailGrid(cocktails: List<Cocktail>, onClick: (String) -> Unit) {
     LazyVerticalGrid(

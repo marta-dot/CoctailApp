@@ -1,22 +1,31 @@
 package com.example.coctailapp
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.view.Gravity
+import android.animation.ValueAnimator
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.view.ViewGroup
+import android.view.animation.BounceInterpolator
+import android.view.animation.DecelerateInterpolator
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -54,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.compose.rememberNavController
@@ -69,6 +79,22 @@ import kotlinx.coroutines.launch
 import me.onebone.toolbar.CollapsingToolbarScaffold
 import me.onebone.toolbar.ScrollStrategy
 import me.onebone.toolbar.rememberCollapsingToolbarScaffoldState
+import kotlinx.coroutines.delay
+
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+
+
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
@@ -81,8 +107,148 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CoctailAppTheme {
-                val windowSizeClass = calculateWindowSizeClass(this)
+                SplashApp()
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
+@Composable
+fun SplashApp() {
+    val navController = rememberNavController()
+    val activity = LocalActivity.current
+
+    activity?.let { nonNullActivity ->
+        val windowSizeClass = calculateWindowSizeClass(nonNullActivity)
+
+        NavHost(navController = navController, startDestination = "splash") {
+            composable("splash") {
+                AnimatedIntroScreen(navController)
+            }
+            composable("main") {
                 MainApp(windowSizeClass)
+            }
+        }
+    } ?: run {
+        Text("Błąd: Brak dostępu do activity")
+    }
+}
+
+
+@Composable
+fun AnimatedIntroScreen(navController: NavController) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFEFEEEE)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Cocktail App",
+            color = Color.Black,
+            fontSize = 24.sp,
+            fontFamily = FontFamily.Serif,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp)
+        )
+
+        val sensorManager =
+            LocalContext.current.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        val sensorListener = remember {
+            object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                        val x = event.values[0] * -2f
+                        val y = event.values[1] * 2f
+                    }
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
+            }
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                sensorManager.unregisterListener(sensorListener)
+            }
+        }
+
+        AndroidView(
+            factory = { ctx ->
+                val container = FrameLayout(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+
+                val glassView = ImageView(ctx).apply {
+                    setImageResource(R.drawable.alcohol_icon)
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                    alpha = 1f
+                    layoutParams = FrameLayout.LayoutParams(600, 600).apply {
+                        gravity = Gravity.CENTER
+                    }
+                }
+                container.addView(glassView)
+
+                val localSensorListener = object : SensorEventListener {
+                    override fun onSensorChanged(event: SensorEvent) {
+                        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                            val x = event.values[0] * -1f
+                            glassView.rotation = x * 2f
+                        }
+                    }
+
+                    override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
+                }
+
+                sensorManager.registerListener(
+                    localSensorListener, accelerometer, SensorManager.SENSOR_DELAY_GAME
+                )
+
+                container.post {
+                    // Animacja podskakiwania
+                    val bounceAnim = ObjectAnimator.ofFloat(
+                        glassView, View.TRANSLATION_Y, 0f, -50f, 0f
+                    )
+                    bounceAnim.duration = 800L
+                    bounceAnim.repeatCount = ValueAnimator.INFINITE
+                    bounceAnim.interpolator = BounceInterpolator()
+
+                    // powiększanie i zmniejszanie
+                    val scaleAnimX = ObjectAnimator.ofFloat(
+                        glassView, View.SCALE_X, 0.8f, 1.2f
+                    )
+                    scaleAnimX.duration = 1000L
+                    scaleAnimX.repeatCount = ValueAnimator.INFINITE
+                    scaleAnimX.repeatMode = ValueAnimator.REVERSE
+                    scaleAnimX.interpolator = DecelerateInterpolator()
+
+                    val scaleAnimY = ObjectAnimator.ofFloat(
+                        glassView, View.SCALE_Y, 0.8f, 1.2f
+                    )
+                    scaleAnimY.duration = 1000L
+                    scaleAnimY.repeatCount = ValueAnimator.INFINITE
+                    scaleAnimY.repeatMode = ValueAnimator.REVERSE
+                    scaleAnimY.interpolator = DecelerateInterpolator()
+
+                    val animSet = AnimatorSet()
+                    animSet.playTogether(bounceAnim, scaleAnimX, scaleAnimY)
+                    animSet.start()
+                }
+
+                container
+            }, modifier = Modifier.fillMaxSize()
+        )
+
+        // Przejście do głównego ekranu po 5 sekundach
+        LaunchedEffect(Unit) {
+            delay(5000)
+            navController.navigate("main") {
+                popUpTo("splash") { inclusive = true }
             }
         }
     }
@@ -94,8 +260,8 @@ fun MainApp(windowSizeClass: WindowSizeClass) {
     var selectedCocktailId by rememberSaveable { mutableStateOf<String?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val isTablet = windowSizeClass.widthSizeClass >= WindowWidthSizeClass.Medium &&
-                  windowSizeClass.heightSizeClass >= WindowHeightSizeClass.Medium
+    val isTablet =
+        windowSizeClass.widthSizeClass >= WindowWidthSizeClass.Medium && windowSizeClass.heightSizeClass >= WindowHeightSizeClass.Medium
 
     if (isTablet) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -307,16 +473,13 @@ fun CocktailCard(x0: Cocktail, x1: (String) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AsyncImage(
-                model = x0.strDrinkThumb,
-                contentDescription = "Drink"
+                model = x0.strDrinkThumb, contentDescription = "Drink"
             )
 
             Text(
-                text = x0.strDrink,
-                style = MaterialTheme.typography.headlineSmall,
+                text = x0.strDrink, style = MaterialTheme.typography.headlineSmall,
 
-                fontSize = 16.sp,
-                lineHeight = 18.sp
+                fontSize = 16.sp, lineHeight = 18.sp
             )
 
         }
@@ -367,55 +530,57 @@ fun AboutCocktailScreen(cocktailId: String, navController : NavController, onMen
             ).filter { ingredient -> ingredient.isNotBlank() }
             val state = rememberCollapsingToolbarScaffoldState()
             Surface {
-                Scaffold(
-                    floatingActionButton = { SmsFab(ingredients) },
-                    content = { padding ->
-                        CollapsingToolbarScaffold(
+                Scaffold(floatingActionButton = { SmsFab(ingredients) }, content = { padding ->
+                    CollapsingToolbarScaffold(
 
-                            modifier = Modifier,
-                            state = state,
-                            scrollStrategy = ScrollStrategy.EnterAlways,
-                            toolbar = {
-                                val textSize = (18 + (30 - 12) * state.toolbarState.progress).sp
+                        modifier = Modifier,
+                        state = state,
+                        scrollStrategy = ScrollStrategy.EnterAlways,
+                        toolbar = {
+                            val textSize = (18 + (30 - 12) * state.toolbarState.progress).sp
 
-                                Box(
-                                    modifier = Modifier.fillMaxSize().height(150.dp).pin()
-                                        .background(color = MaterialTheme.colorScheme.primaryContainer)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .height(150.dp)
+                                    .pin()
+                                    .background(color = MaterialTheme.colorScheme.primaryContainer)
+                            )
+
+                            AsyncImage(
+                                model = cocktail!!.strDrinkThumb,
+                                contentDescription = "Drink Image",
+                                alpha = if (textSize.value <= 24f) 0f else 1f,
+                                contentScale = ContentScale.FillBounds,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            IconButton(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier.padding(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White
                                 )
-
-                                    AsyncImage(
-                                        model = cocktail!!.strDrinkThumb,
-                                        contentDescription = "Drink Image",
-                                        alpha = if (textSize.value <= 24f) 0f else 1f,
-                                        contentScale = ContentScale.FillBounds,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    IconButton(
-                                        onClick = { navController.popBackStack() },
-                                        modifier = Modifier
-                                            .padding(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.ArrowBack,
-                                            contentDescription = "Back",
-                                            tint = Color.White
-                                        )
-                                    }
-                                    Text(
-                                        cocktail!!.strDrink,
-                                        style = TextStyle(fontSize = textSize, color = Color.White),
-                                        modifier = Modifier.padding(16.dp).road(
-                                            whenCollapsed = Alignment.TopCenter,
-                                            whenExpanded = Alignment.BottomCenter
-                                        )
-                                    )
-                            }) {
-                            Column(
+                            }
+                            Text(
+                                cocktail!!.strDrink,
+                                style = TextStyle(fontSize = textSize, color = Color.White),
                                 modifier = Modifier
                                     .padding(16.dp)
-                                    .verticalScroll(rememberScrollState())
-                                    .fillMaxSize()
-                            ) {
+                                    .road(
+                                        whenCollapsed = Alignment.TopCenter,
+                                        whenExpanded = Alignment.BottomCenter
+                                    )
+                            )
+                        }) {
+                        Column(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .verticalScroll(rememberScrollState())
+                                .fillMaxSize()
+                        ) {
 //                AsyncImage(
 //                    model = cocktail.strDrinkThumb,
 //                    contentDescription = "Drink Image",
@@ -425,47 +590,46 @@ fun AboutCocktailScreen(cocktailId: String, navController : NavController, onMen
 //                        .height(250.dp)
 //                )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
+                            Text(
+                                text = "Składniki:",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+
+                            ingredients.forEach { ingredient ->
                                 Text(
-                                    text = "Składniki:",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-
-                                ingredients.forEach { ingredient ->
-                                    Text(
-                                        text = "- $ingredient",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.padding(horizontal = 16.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Text(
-                                    text = "Instrukcje:",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-                                Text(
-                                    text = cocktail!!.strInstructions ?: "",
+                                    text = "- $ingredient",
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.padding(horizontal = 16.dp)
                                 )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Text(
-                                    text = "Minutnik:",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-                                TimerScreen()
                             }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "Instrukcje:",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                            Text(
+                                text = cocktail!!.strInstructions ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "Minutnik:",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                            TimerScreen()
                         }
                     }
-                )
+                })
             }
         }
 
@@ -501,18 +665,13 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
-                    value = minutes,
-                    onValueChange = {
-                        if ((it.isEmpty() || it.all { char -> char.isDigit() }) && it.length <= 2) {
-                            minutes = it
-                        }
-                    },
-                    label = { Text("Minuty") },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Next
-                    ),
-                    modifier = Modifier.weight(1f)
+                    value = minutes, onValueChange = {
+                    if ((it.isEmpty() || it.all { char -> char.isDigit() }) && it.length <= 2) {
+                        minutes = it
+                    }
+                }, label = { Text("Minuty") }, keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                ), modifier = Modifier.weight(1f)
                 )
 
                 Text(
@@ -527,26 +686,18 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
                 )
 
                 OutlinedTextField(
-                    value = seconds,
-                    onValueChange = {
-                        if ((it.isEmpty() || it.all { char -> char.isDigit() }) && it.length <= 2) {
-                            seconds = it
-                        }
-                    },
-                    label = { Text("Sekundy") },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            val totalSeconds =
-                                (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
-                            viewModel.startTimer(totalSeconds)
-                        }
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
+                    value = seconds, onValueChange = {
+                    if ((it.isEmpty() || it.all { char -> char.isDigit() }) && it.length <= 2) {
+                        seconds = it
+                    }
+                }, label = { Text("Sekundy") }, keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
+                ), keyboardActions = KeyboardActions(
+                    onDone = {
+                        val totalSeconds =
+                            (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
+                        viewModel.startTimer(totalSeconds)
+                    }), modifier = Modifier.weight(1f))
             }
         } else {
 
@@ -566,16 +717,14 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.fillMaxWidth()
+            horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()
         ) {
             IconButton(
                 onClick = {
                     val totalSeconds =
                         (minutes.toIntOrNull() ?: 0) * 60 + (seconds.toIntOrNull() ?: 0)
                     viewModel.startTimer(totalSeconds)
-                }
-            ) {
+                }) {
                 Icon(Icons.Default.PlayArrow, contentDescription = "Start")
             }
             IconButton(
@@ -584,8 +733,7 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
                     // Convert timeLeft to minutes and seconds and update input fields
                     minutes = (timeLeft / 60).toString()
                     seconds = (timeLeft % 60).toString().padStart(2, '0')
-                }
-            ) {
+                }) {
                 Icon(Icons.Default.Pause, contentDescription = "Pause")
             }
             IconButton(
@@ -593,8 +741,7 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
                     viewModel.resetTimer()
                     minutes = ""  // Clear instead of setting to "0"
                     seconds = ""  // Clear instead of setting to "0"
-                }
-            ) {
+                }) {
                 Icon(Icons.Default.Stop, contentDescription = "Stop")
             }
         }
@@ -614,8 +761,7 @@ fun SmsFab(ingredients: List<String>) {
                 putExtra("sms_body", message)
             }
             context.startActivity(intent)
-        },
-        containerColor = MaterialTheme.colorScheme.primary
+        }, containerColor = MaterialTheme.colorScheme.primary
     ) {
         Icon(Icons.Default.Send, contentDescription = "Wyślij SMS")
     }

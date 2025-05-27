@@ -99,6 +99,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
@@ -271,7 +273,6 @@ fun MainApp(windowSizeClass: WindowSizeClass) {
                 }, onMenuClick = { scope.launch { drawerState.open() } })
             }
 
-            // Divider
             Divider(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -279,7 +280,7 @@ fun MainApp(windowSizeClass: WindowSizeClass) {
                 color = MaterialTheme.colorScheme.outlineVariant
             )
 
-            // Detail pane (2/3 of screen)
+            // 2/3 of screen
             Box(modifier = Modifier.weight(2f)) {
                 key(selectedCocktailId) {
                     selectedCocktailId?.let {
@@ -339,7 +340,7 @@ private fun PlaceholderScreen() {
             text = "Wybierz koktajl aby zobaczyć szczegóły",
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface  // Add this to ensure text is visible
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -358,7 +359,7 @@ fun CocktailListScreen(
     var isSearching by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Fetching cocktails (you might want to move these out if already fetched elsewhere)
+    // Fetching cocktails
     val context = LocalContext.current
     val cocktailsAlco by produceState<List<Cocktail>>(initialValue = emptyList()) {
         try {
@@ -437,7 +438,38 @@ fun CocktailListScreen(
                 .fillMaxSize()
         ) { page ->
             when (page) {
-                0 -> Text("Główna zawartość", modifier = Modifier.padding(16.dp))
+                0 -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_launcher_playstore),
+                            contentDescription = "Logo aplikacji",
+                            modifier = Modifier.size(200.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(
+                            text = "Aplikacja do wyszukiwania i przygotowywania drinków",
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Znajdź swój ulubiony koktajl, odkryj nowe przepisy i naucz się je przygotowywać w prosty sposób",
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 1 -> CocktailGrid(filterCocktails(cocktailsAlco), onCocktailClick)
                 2 -> CocktailGrid(filterCocktails(cocktailsNonAlco), onCocktailClick)
             }
@@ -581,15 +613,6 @@ fun AboutCocktailScreen(cocktailId: String, navController : NavController, onMen
                                 .verticalScroll(rememberScrollState())
                                 .fillMaxSize()
                         ) {
-//                AsyncImage(
-//                    model = cocktail.strDrinkThumb,
-//                    contentDescription = "Drink Image",
-//                    contentScale = ContentScale.Crop,
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .height(250.dp)
-//                )
-
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Text(
@@ -730,7 +753,6 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
             IconButton(
                 onClick = {
                     viewModel.stopTimer()
-                    // Convert timeLeft to minutes and seconds and update input fields
                     minutes = (timeLeft / 60).toString()
                     seconds = (timeLeft % 60).toString().padStart(2, '0')
                 }) {
@@ -739,8 +761,8 @@ fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
             IconButton(
                 onClick = {
                     viewModel.resetTimer()
-                    minutes = ""  // Clear instead of setting to "0"
-                    seconds = ""  // Clear instead of setting to "0"
+                    minutes = ""
+                    seconds = ""
                 }) {
                 Icon(Icons.Default.Stop, contentDescription = "Stop")
             }
@@ -754,7 +776,7 @@ fun SmsFab(ingredients: List<String>) {
 
     FloatingActionButton(
         onClick = {
-            val phoneNumber = "123456789" // ← wpisz numer
+            val phoneNumber = "123456789"
             val message = ingredients.joinToString(", ")
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse("sms:$phoneNumber")
